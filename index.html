@@ -182,6 +182,7 @@ input[type=range]{flex:1;min-width:0;accent-color:var(--indigo)}
         <li><span class="sw" style="background:var(--teal)"></span><span><b>Casinhas de telhado verde-azulado.</b> Cada uma é um parceiro do projeto, atrás da casa do projeto. As bandeiras ao vento representam o programa e o MPMA.</span></li>
         <li><span class="sw" style="background:var(--v-fence)"></span><span><b>Cercado e moedas.</b> Cada moeda dentro do cercado vale cerca de R$ 1.000 já recebidos pelo núcleo.</span></li>
         <li><span class="sw" style="background:var(--teal)"></span><span><b>Marcos coletivos.</b> Ao passar de R$ 500 mil pagos a vila ganha uma praça, de R$ 750 mil uma escola e de R$ 1 milhão um posto de saúde. São marcos simbólicos do estudo.</span></li>
+        <li><span class="sw" style="background:var(--gold)"></span><span><b>Refletores no modo noite.</b> A cada R$ 250 mil, R$ 500 mil, R$ 750 mil e R$ 1 milhão pagos, entra mais um refletor para iluminar a casa do projeto e as crianças, o banco e a praça.</span></li>
         <li><span class="sw" style="background:var(--gold)"></span><span><b>Melhorias a cada R$ 5.000 recebidos.</b> 1) cerca reforçada, 2) fachada renovada, 3) telhado reforçado, 4) varanda e jardim, 5) painel solar e poste de luz.</span></li>
         <li><span class="sw" style="background:var(--v-road)"></span><span><b>Cada rua é uma turma</b>, o mês de entrada no programa. As casas surgem conforme o mês escolhido.</span></li>
         <li><span class="sw" style="background:var(--gold)"></span><span><b>Banco e colunas douradas:</b> o valor pago em cada mês.</span></li>
@@ -559,6 +560,53 @@ var vx={night:false,nf:0,preview:false,tour:null};
 function marcoOn(M){return vx.preview||TOT[S.mi][2]>=M.thr}
 function marcoMes(M){for(var i=0;i<TOT.length;i++){if(TOT[i][2]>=M.thr)return i}return -1}
 
+/* refletores noturnos: a cada R$ 250 mil pagos entra um refletor na casa do projeto, no banco e na praça */
+var RTH=[250000,500000,750000,1000000];
+var GLOW=(function(){var c=document.createElement('canvas');c.width=c.height=128;var x=null;try{x=c.getContext('2d')}catch(e){}
+  if(x){var g=x.createRadialGradient(64,64,0,64,64,64);g.addColorStop(0,'rgba(255,232,176,1)');g.addColorStop(0.45,'rgba(255,214,140,0.42)');g.addColorStop(1,'rgba(255,200,120,0)');x.fillStyle=g;x.fillRect(0,0,128,128)}
+  return new THREE.CanvasTexture(c)})();
+function glowMat(){return new THREE.MeshBasicMaterial({map:GLOW,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide})}
+var SITES=[];
+function makeSite(ok,pl){var st={ok:ok,refl:[],pl:new THREE.PointLight(0xFFD9A0,0,8,1.4)};st.pl.position.set(pl[0],pl[1],pl[2]);vg.add(st.pl);SITES.push(st);return st}
+var reflMetal=LM(0x56606A);
+function addRefl(st,k,px,pz,A,pool,wash,H){
+  H=H||1.05;var g=new THREE.Group();g.position.set(px,0,pz);g.visible=false;vg.add(g);
+  cyl(0.022,H,6,reflMetal,0,H/2,0,g);
+  var head=new THREE.Group();head.position.set(0,H+0.03,0);g.add(head);
+  bx(0.2,0.1,0.14,reflMetal,0,0,0,head);
+  var lampM=LM(0xFFF2C8);bx(0.15,0.075,0.02,lampM,0,0,0.08,head);
+  g.updateMatrixWorld(true);head.lookAt(new THREE.Vector3(A[0],A[1],A[2]));
+  var P=new THREE.Vector3(px,H+0.03,pz),T=new THREE.Vector3(A[0],A[1],A[2]),d=T.clone().sub(P),L=d.length();
+  var bm=new THREE.MeshBasicMaterial({color:0xFFE2A8,transparent:true,opacity:0,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide});
+  var beam=new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.55,L,16,1,true),bm);
+  beam.position.copy(P).add(T).multiplyScalar(0.5);beam.quaternion.setFromUnitVectors(new THREE.Vector3(0,-1,0),d.clone().normalize());beam.renderOrder=5;vg.add(beam);
+  var r={g:g,beam:bm,lamp:lampM,k:k,a:0,t:0,pool:null,wash:null,extra:[beam]};
+  if(pool){var pm=glowMat(),pg=new THREE.PlaneGeometry(pool[2],pool[2]);pg.rotateX(-Math.PI/2);var pmesh=new THREE.Mesh(pg,pm);pmesh.position.set(pool[0],0.045,pool[1]);pmesh.renderOrder=4;vg.add(pmesh);r.pool=pm;r.extra.push(pmesh)}
+  if(wash){var wm2=glowMat(),wmesh=new THREE.Mesh(new THREE.PlaneGeometry(wash[3],wash[4]),wm2);wmesh.position.set(wash[0],wash[1],wash[2]);wmesh.renderOrder=6;vg.add(wmesh);r.wash=wm2;r.extra.push(wmesh)}
+  r.extra.forEach(function(o){o.visible=false});
+  st.refl.push(r);return r}
+var siteSede=makeSite(null,[-10.5,1.9,2.4]);
+addRefl(siteSede,0,-10.5,4.4,[-10.5,0.55,0.9],[-10.5,2.7,3.4],[-10.5,0.95,0.93,3.0,1.9]);
+addRefl(siteSede,1,-12.3,4.2,[-11.0,0.5,0.9],[-11.7,3.0,2.8],[-11.6,0.6,0.93,2.0,1.3]);
+addRefl(siteSede,2,-8.7,4.2,[-10.0,0.5,0.9],[-9.3,3.0,2.8],[-9.4,0.6,0.93,2.0,1.3]);
+addRefl(siteSede,3,-8.6,2.4,[-10.5,1.3,0.9],[-10.5,2.2,3.2],[-10.5,1.45,0.93,2.6,1.1]);
+var siteBanco=makeSite(null,[10.6,1.9,2.2]);
+addRefl(siteBanco,0,10.6,2.4,[10.6,0.6,1.05],[10.6,1.8,3.2],[10.6,0.9,1.12,3.3,1.9]);
+addRefl(siteBanco,1,9.2,2.3,[10.0,0.6,1.05],[9.7,1.9,2.4],[9.6,0.7,1.12,2.0,1.3]);
+addRefl(siteBanco,2,12.0,2.3,[11.2,0.6,1.05],[11.5,1.9,2.4],[11.6,0.7,1.12,2.0,1.3]);
+addRefl(siteBanco,3,10.6,3.3,[10.6,1.4,1.05],[10.6,2.5,3.6],[10.6,1.5,1.12,3.0,1.0]);
+var sitePraca=makeSite(function(){return marcoOn(MARCOS[0])},[-10.6,1.5,-5.2]);
+[[0.9,0.9],[-0.9,0.9],[-0.9,-0.9],[0.9,-0.9]].forEach(function(o,k){addRefl(sitePraca,k,-10.6+o[0],-5.2+o[1],[-10.6,0.3,-5.2],[-10.6,-5.2,2.6],null,0.85)});
+function reflStep(){
+  var f=vx.nf,tot=TOT[S.mi][2];
+  SITES.forEach(function(st){var cnt=0,ok=st.ok?st.ok():true;
+    st.refl.forEach(function(r){r.t=(ok&&tot>=RTH[r.k])?1:0;
+      if(reduced||Math.abs(r.t-r.a)<0.01)r.a=r.t;else r.a+=(r.t-r.a)*0.1;
+      var vis=r.a>0.01;r.g.visible=vis;r.extra.forEach(function(o){o.visible=vis&&f>0.01});
+      var i=r.a*f;r.beam.opacity=0.2*i;if(r.pool)r.pool.opacity=0.6*i;if(r.wash)r.wash.opacity=0.5*i;
+      r.lamp.emissive.setHex(0xFFE9A8).multiplyScalar(i);cnt+=r.a});
+    st.pl.intensity=f*cnt*0.5})}
+
 /* moedas dentro dos cercados (instanciadas) */
 var coinMat=tm('--gold');
 var coinsMesh=new THREE.InstancedMesh(new THREE.CylinderGeometry(0.065,0.065,0.022,14),coinMat,Math.max(MAXC,1));
@@ -643,7 +691,7 @@ function vDetail(){
   var d=$('detVila'),r=vst.sel,t=TOT[S.mi],h;
   if(!r){d.innerHTML='<h2>Detalhe</h2><p>Clique na casa do projeto, nas casinhas dos parceiros, nas bandeiras, em uma casa de núcleo familiar ou no banco para ver os números de '+mlabel(S.mi)+'.</p>';return}
   if(r.type==='sede'){
-    h='<p class="nm">Casa do projeto</p><p>Órfãos do Feminicídio · Sem desamparo. Cada avatar na praça é uma vida beneficiada.</p><dl><dt>Vidas beneficiadas</dt><dd>'+nf.format(t[0])+'</dd><dt>Núcleos familiares</dt><dd>'+nf.format(t[1])+'</dd><dt>Municípios atendidos</dt><dd>'+nf.format(nMun())+'</dd><dt>Casas com melhorias</dt><dd>'+nf.format(houses.filter(function(x){return x.n.e<=S.mi&&x.lv>0}).length)+'</dd><dt>Meses de pagamento</dt><dd>'+(S.mi+1)+'</dd></dl>'+
+    h='<p class="nm">Casa do projeto</p><p>Órfãos do Feminicídio · Sem desamparo. Cada avatar na praça é uma vida beneficiada.</p><dl><dt>Vidas beneficiadas</dt><dd>'+nf.format(t[0])+'</dd><dt>Núcleos familiares</dt><dd>'+nf.format(t[1])+'</dd><dt>Municípios atendidos</dt><dd>'+nf.format(nMun())+'</dd><dt>Meses de pagamento</dt><dd>'+(S.mi+1)+'</dd></dl>'+
       '<div class="acts"><button type="button" class="btn pri" data-go="mapa">Ver os municípios no mapa</button><a class="btn" href="'+DASH+'" target="_blank" rel="noopener">Abrir painel</a></div>';
   }else if(r.type==='banco'){
     var pay=t[2]-(S.mi?TOT[S.mi-1][2]:0);
@@ -729,7 +777,7 @@ function marcosAnim(){MARCOS.forEach(function(M){var r=M.rec;if(r.group.visible&
 function tourStep(){var T=vx.tour;if(!T)return;var c=Vl.cam,g=T.cam,k=reduced?1:0.045;
   var dt=g.th-c.th;dt=Math.atan2(Math.sin(dt),Math.cos(dt));c.th+=dt*k;c.ph+=(g.ph-c.ph)*k;c.r+=(g.r-c.r)*k;c.tx+=(g.tx-c.tx)*k;c.tz+=(g.tz-c.tz)*k;Vl.zoomed=true}
 function vilaAnim(){
-  nightStep();marcosAnim();tourStep();
+  nightStep();reflStep();marcosAnim();tourStep();
   var kk=reduced?1:0.12;
   waveFlags(reduced?0:performance.now()/1000);
   if(Math.abs(hT.ts-hT.s)>0.001||Math.abs(hT.tc-hT.c)>0.001){hT.s+=(hT.ts-hT.s)*0.1;hT.c+=(hT.tc-hT.c)*0.1;heartSet(hT.s,hT.c)}
